@@ -1,4 +1,3 @@
-import pandas as pd
 import sys
 import argparse
 import db
@@ -8,7 +7,7 @@ import sys
 import logging
 from sqlalchemy import Index
 
-from features import model, features
+from features import sa_model, features
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -24,7 +23,7 @@ def createargs(args):
 def create():
     with db.DBConnection() as conn:
         with conn.begin() as trans:
-            model.metadata.create_all(conn)
+            sa_model.metadata.create_all(conn)
 
 def create_indices():
     itrunc = 0
@@ -37,7 +36,7 @@ def create_indices():
     with db.DBConnection() as conn:
         with conn.begin() as trans:
 
-            tables = model.tables
+            tables = sa_model.tables
             for table, table_features in features.features.items():
                 Index(truncate(table + "_year"), tables[table].c.year).create(conn)
                 cols = list(map(lambda a : a.name, table_features))
@@ -51,10 +50,6 @@ def create_indices():
 def insertargs(args):
     insert(args.input_file, args.table_name)
 
-type_dict = {
-    "integer": lambda s : s.astype(pd.Int64Dtype()),
-    "string": lambda s : s.astype(str, skipna=True)
-}
 
 def insert(input_file, table_name):
     pg_load_table(input_file, table_name)
@@ -94,7 +89,7 @@ def pg_load_table(file_path, table_name):
         logger.info("Loading data from {} into {}".format(file_path, table_name))
 
         with open(file_path, "r") as f:
-            columns = ["\"" + (model.table_id(table_name) if x == "index" else x) + "\"" for x in next(f).strip().split(",")]
+            columns = ["\"" + (sa_model.table_id(table_name) if x == "index" else x) + "\"" for x in next(f).strip().split(",")]
             cur.copy_from(f, table_name, sep=",", null="", columns=columns)
 
 

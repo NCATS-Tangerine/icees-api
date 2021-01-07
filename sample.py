@@ -1,16 +1,26 @@
+import csv
 from features import features
-import pandas as pd
-import numpy as np
 import sys
 import argparse
+import random
+
+
+def randint(high, size=1):
+    """Generate size random integers x: 0 <= x < high."""
+    return [random.randint(0, high - 1) for _ in range(size)]
+
+
+def choice(elements, size=1):
+    """Draw (with replacement) size elements from elements."""
+    return random.choices(elements, k=size)
 
 
 def generate_data(table_name, years, n, fn):
-    df_all = None
+    data_all = []
     for year in years:
-        df = pd.DataFrame({table_name[0].upper() + table_name[1:] + "Id":range(1,n+1)})
+        df = {table_name[0].upper() + table_name[1:] + "Id": list(range(1, n+1))}
 
-        df["year"] = year
+        df["year"] = [year for _ in range(n)]
 
         for f in features.features[table_name]:
             t = f._type
@@ -18,19 +28,32 @@ def generate_data(table_name, years, n, fn):
             levels = f.options
             if levels is None:
                 if t == int:
-                    df[col] = np.random.randint(10, size=n)
+                    df[col] = randint(10, size=n)
                 elif t == str:
-                    df[col] = [''.join(chr(x + 97) for x in np.random.randint(26, size=2)) for _ in range(n)]
+                    df[col] = [''.join(chr(x + 97) for x in randint(26, size=2)) for _ in range(n)]
                 else:
                     print ("error: " + col + " " + str(t))
             else:
-                df[col] = np.random.choice(levels, size=n)
-        if df_all is None:
-            df_all = df
-        else:
-            df_all = df_all.append(df, ignore_index=True)
+                df[col] = choice(levels, size=n)
+        # reformat dict
+        data = [
+            dict(row)
+            for row in zip(*[
+                list(zip(
+                    [key for _ in value],
+                    value,
+                ))
+                for key, value in df.items()
+            ])
+        ]
 
-    df_all.to_csv(fn, index=False)
+        data_all.extend(data)
+
+    fieldnames = list(data_all[0].keys())
+    with open(fn, "w") as stream:
+        writer = csv.DictWriter(stream, fieldnames)
+        writer.writeheader()
+        writer.writerows(data_all)
 
 
 if __name__ == "__main__":
